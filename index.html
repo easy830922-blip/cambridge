@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cambridge Education - 學生進度追蹤</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --cr: #7d1128;
+  --cr-dk: #5a0c1e;
+  --cr-lt: #a3243a;
+  --cr-pl: #f9edef;
+  --cr-mu: #e8c9cf;
+  --white: #ffffff;
+  --bg: #f4eeef;
+  --text: #1a1a1a;
+  --text-lt: #666;
+  --border: #e5e0e1;
+}
+body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+.mono { font-family: 'DM Mono', monospace; }
+
+/* HEADER */
+.header { background: linear-gradient(135deg, var(--cr-dk) 0%, var(--cr) 55%, var(--cr-lt) 100%); color: white; padding: 16px 24px; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(90,12,30,.4); }
+.header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.header-title h1 { font-size: 18px; font-weight: 900; letter-spacing: -0.3px; }
+.header-title p  { font-size: 10px; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 2px; font-family: 'DM Mono', monospace; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters select, .filters input {
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: white;
+  font-size: 11px; padding: 6px 10px; border-radius: 8px; outline: none; font-family: inherit;
+}
+.filters select option { background: var(--cr-dk); color: white; }
+.filters input::placeholder { color: rgba(255,255,255,.5); }
+
+/* KPIs */
+.kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 500px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 10px; padding: 10px 14px; }
+.kpi-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,.55); font-weight: 700; margin-bottom: 2px; font-family: 'DM Mono', monospace; }
+.kpi-value { font-size: 24px; font-weight: 900; font-family: 'DM Mono', monospace; }
+.kpi-bar { height: 3px; background: rgba(255,255,255,.2); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.kpi-bar-fill { height: 100%; background: #fde047; border-radius: 2px; transition: width .4s; }
+.kpi-alert { border-left: 2px solid #fde047; }
+.kpi-alert .kpi-value { color: #fde047; }
+.kpi-uk .kpi-value  { color: #93c5fd; }
+.kpi-us .kpi-value  { color: #86efac; }
+.kpi-avg .kpi-value { color: #fde047; }
+.kpi-offer .kpi-value { color: #6ee7b7; }
+
+/* MAIN */
+.main { max-width: 1700px; margin: 0 auto; padding: 20px 24px; }
+
+/* TABS */
+.tabs { display: flex; gap: 6px; background: white; border: 1px solid var(--cr-mu); border-radius: 10px; padding: 5px; width: fit-content; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(125,17,40,.08); }
+.tab { padding: 7px 18px; font-size: 12px; font-weight: 700; border-radius: 7px; cursor: pointer; border: none; background: transparent; color: var(--cr); font-family: inherit; transition: all .15s; }
+.tab.active { background: var(--cr); color: white; }
+.tab:not(.active):hover { background: var(--cr-pl); }
+
+/* TABLE WRAPPER */
+.table-wrap { background: white; border-radius: 14px; border: 1px solid var(--cr-mu); box-shadow: 0 2px 12px rgba(125,17,40,.07); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 1200px; }
+thead tr { background: #fdf5f6; border-bottom: 2px solid var(--cr-mu); }
+thead th { padding: 11px 14px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; color: var(--cr); text-align: center; white-space: nowrap; }
+thead th:first-child { text-align: left; min-width: 200px; }
+thead th:last-child  { text-align: right; }
+tbody tr { border-bottom: 1px solid #f5eeef; transition: background .12s; }
+tbody tr:hover { background: #fdf5f6; }
+tbody td { padding: 11px 14px; vertical-align: top; text-align: center; }
+tbody td:first-child { text-align: left; }
+tbody td:last-child  { text-align: right; }
+
+/* Student cell */
+.stu-name { font-weight: 900; font-size: 14px; color: #111; }
+.stu-year { font-size: 9px; font-family: 'DM Mono', monospace; background: #f1f5f9; color: #94a3b8; padding: 1px 5px; border-radius: 3px; vertical-align: middle; margin-left: 4px; }
+.stu-bg   { font-size: 11px; color: var(--text-lt); margin-top: 2px; }
+.stu-dept { font-size: 11px; font-weight: 700; color: var(--cr-lt); margin-top: 1px; }
+.stu-extra { font-size: 10px; color: #999; margin-top: 1px; }
+
+/* Badges */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 800; border: 1px solid; }
+.badge-uk  { background: #dbeafe; color: #1e3a8a; border-color: #bfdbfe; }
+.badge-usa { background: #dcfce7; color: #14532d; border-color: #bbf7d0; }
+.badge-offer { background: var(--cr); color: white; border-color: var(--cr-dk); font-size: 9px; padding: 1px 6px; }
+.badge-alert { background: #fee2e2; color: #991b1b; border-color: #fca5a5; font-size: 9px; padding: 1px 6px; }
+
+/* Progress bar */
+.prog-wrap { display: flex; align-items: center; gap: 6px; justify-content: center; }
+.prog-bar  { flex: 1; height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; max-width: 80px; }
+.prog-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+.prog-pct  { font-size: 11px; font-weight: 900; font-family: 'DM Mono', monospace; min-width: 32px; }
+
+/* Phase dots */
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.dot-done    { background: #22c55e; box-shadow: 0 0 0 2px #dcfce7; }
+.dot-active  { background: #3b82f6; box-shadow: 0 0 0 2px #dbeafe; }
+.dot-alert   { background: #ef4444; box-shadow: 0 0 0 2px #fee2e2; }
+.dot-pending { background: #d1d5db; }
+
+/* School chips */
+.chip { display: inline-block; background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
+.chip.chosen { background: var(--cr); color: white; border-color: var(--cr-dk); font-size: 12px; padding: 5px 12px; box-shadow: 0 2px 8px rgba(125,17,40,.25); }
+
+/* Action btn */
+.btn-detail { font-size: 11px; font-weight: 800; padding: 6px 12px; border-radius: 8px; border: 1.5px solid var(--cr-mu); background: var(--cr-pl); color: var(--cr); cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap; }
+.btn-detail:hover { background: var(--cr); color: white; border-color: var(--cr); }
+
+/* Phase header tags in table thead */
+.ph-tag { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 9px; font-weight: 800; text-transform: none; letter-spacing: 0; }
+.ph-school { background: #eff6ff; color: #1e40af; }
+.ph-docs   { background: #fefce8; color: #854d0e; }
+.ph-submit { background: #f0fdf4; color: #166534; }
+.ph-result { background: #fdf4ff; color: #6b21a8; }
+
+/* ── BOARD ── */
+.board-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+@media (max-width: 1100px) { .board-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .board-grid { grid-template-columns: 1fr; } }
+.phase-col { background: white; border-radius: 12px; border: 1px solid var(--cr-mu); overflow: hidden; box-shadow: 0 1px 8px rgba(125,17,40,.06); }
+.phase-col-hdr { padding: 11px 14px; color: white; }
+.phase-col-hdr-title { font-weight: 900; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.phase-col-hdr-bar { height: 3px; background: rgba(255,255,255,.3); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.phase-col-hdr-bar-fill { height: 100%; background: white; border-radius: 2px; }
+.phase-col-body { padding: 8px; max-height: 280px; overflow-y: auto; }
+.phase-student { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: background .12s; margin-bottom: 4px; }
+.phase-student:hover { background: #fdf5f6; }
+.phase-student-name { font-weight: 700; font-size: 12px; }
+.phase-student-sub  { font-size: 10px; color: #999; margin-top: 1px; }
+.phase-mini-bar { width: 56px; height: 5px; background: #f1f5f9; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+.phase-mini-fill { height: 100%; border-radius: 3px; }
+
+.board-lower { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media (max-width: 800px) { .board-lower { grid-template-columns: 1fr; } }
+.board-card { background: white; border-radius: 12px; border: 1px solid var(--cr-mu); padding: 18px; box-shadow: 0 1px 8px rgba(125,17,40,.06); }
+.board-card h3 { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; color: var(--cr); margin-bottom: 14px; }
+
+.adv-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: var(--cr-pl); border: 1px solid var(--cr-mu); margin-bottom: 8px; }
+.adv-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--cr); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; flex-shrink: 0; }
+.adv-info { flex: 1; min-width: 0; }
+.adv-name { font-weight: 900; font-size: 13px; }
+.adv-bar  { height: 5px; background: var(--cr-mu); border-radius: 3px; margin: 4px 0; overflow: hidden; }
+.adv-bar-fill { height: 100%; background: var(--cr); border-radius: 3px; }
+.adv-stats { font-size: 10px; color: #888; display: flex; gap: 10px; margin-top: 2px; }
+.adv-stats b { color: var(--text); }
+
+.year-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-radius: 8px; background: var(--cr-pl); border: 1px solid var(--cr-mu); margin-bottom: 6px; }
+.year-row-label { font-weight: 900; font-size: 13px; }
+.year-row-badges { display: flex; gap: 6px; }
+
+.country-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 700px) { .country-grid { grid-template-columns: 1fr; } }
+.country-list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: background .12s; margin-bottom: 4px; }
+.country-list-item:hover { background: #f8f8f8; }
+.cli-name { font-weight: 700; font-size: 12px; }
+.cli-sub  { font-size: 10px; color: #999; margin-top: 1px; }
+.cli-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.cli-pct  { font-size: 11px; font-weight: 900; font-family: 'DM Mono', monospace; min-width: 30px; text-align: right; color: #333; }
+.country-list-scroll { max-height: 280px; overflow-y: auto; }
+
+/* ── MODAL ── */
+#modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); z-index: 500; display: none; align-items: center; justify-content: center; padding: 16px; }
+#modal-overlay.open { display: flex; }
+.modal-box { background: white; width: 100%; max-width: 900px; max-height: 90vh; border-radius: 20px; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden; }
+.modal-hdr { background: linear-gradient(135deg, var(--cr-dk) 0%, var(--cr) 55%, var(--cr-lt) 100%); color: white; padding: 20px 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.modal-hdr-left { flex: 1; min-width: 0; }
+.modal-hdr-name  { font-size: 22px; font-weight: 900; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.modal-hdr-meta  { font-size: 11px; color: rgba(255,255,255,.65); line-height: 1.6; }
+.modal-pct { font-size: 30px; font-weight: 900; font-family: 'DM Mono', monospace; color: #fde047; text-align: right; flex-shrink: 0; }
+.modal-pct-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,.5); font-family: 'DM Mono', monospace; text-align: right; }
+.modal-close { background: none; border: none; color: rgba(255,255,255,.7); font-size: 22px; cursor: pointer; padding: 0 0 0 12px; flex-shrink: 0; line-height: 1; }
+.modal-close:hover { color: white; }
+
+.modal-body { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+.phase-section { border: 1.5px solid #e5e7eb; border-radius: 12px; overflow: hidden; margin-bottom: 2px; }
+.phase-section-hdr { padding: 10px 16px; color: white; display: flex; justify-content: space-between; align-items: center; }
+.phase-section-title { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; }
+.phase-section-count { font-size: 11px; background: rgba(255,255,255,.22); padding: 2px 10px; border-radius: 99px; font-family: 'DM Mono', monospace; font-weight: 700; }
+.phase-section-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px; background: white; }
+@media (max-width: 700px) { .phase-section-body { grid-template-columns: repeat(2, 1fr); } }
+
+.task-btn { cursor: pointer; border-radius: 8px; padding: 9px 12px; font-size: 12px; font-weight: 700; border: 1.5px solid; display: flex; flex-direction: column; gap: 4px; transition: all .12s; user-select: none; font-family: inherit; width: 100%; text-align: left; }
+.task-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.12); filter: brightness(.96); }
+.t-empty    { background: #f8f8f8; color: #aaa; border-color: #e2e2e2; }
+.t-progress { background: #e8f0fb; color: #1e40af; border-color: #93c5fd; }
+.t-done     { background: #e6f5ec; color: #166534; border-color: #86efac; }
+.t-alert    { background: #fde8e8; color: #991b1b; border-color: #fca5a5; }
+.task-label  { font-size: 12px; font-weight: 700; line-height: 1.3; }
+.task-status { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .6px; opacity: .65; }
+
+.school-section { border: 1.5px solid var(--cr-mu); border-radius: 12px; overflow: hidden; }
+.school-section-hdr { padding: 10px 16px; background: var(--cr); color: white; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; }
+.school-section-body { padding: 14px; background: white; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 52px; }
+
+.modal-ftr { border-top: 1px solid var(--cr-mu); padding: 12px 20px; background: var(--cr-pl); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 10px; color: #888; }
+.legend-item { padding: 4px 9px; border-radius: 6px; font-size: 10px; font-weight: 700; border: 1px solid; }
+.btn-close { background: var(--cr); color: white; border: none; padding: 8px 22px; border-radius: 9px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; transition: opacity .15s; }
+.btn-close:hover { opacity: .85; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c4a0a8; border-radius: 3px; }
+
+.empty-msg { padding: 48px; text-align: center; color: #bbb; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-top">
+    <div class="header-title">
+      <h1>學生進度追蹤</h1>
+      <p>Cambridge Education · 英美申請整合管理</p>
+    </div>
+    <div class="filters">
+      <select id="fYear" onchange="applyFilters()">
+        <option value="">所有入學年度</option>
+        <option value="2024">2024 入學</option>
+        <option value="2025">2025 入學</option>
+        <option value="2026">2026 入學</option>
+        <option value="2027">2027 入學</option>
+      </select>
+      <select id="fAdvisor" onchange="applyFilters()">
+        <option value="">所有顧問（主管視角）</option>
+        <option value="Sonia">Sonia</option>
+        <option value="Amy">Amy</option>
+        <option value="Kevin">Kevin</option>
+        <option value="Tina">Tina</option>
+      </select>
+      <select id="fCountry" onchange="applyFilters()">
+        <option value="">英國 + 美國</option>
+        <option value="UK">英國</option>
+        <option value="USA">美國</option>
+      </select>
+      <select id="fPhase" onchange="applyFilters()">
+        <option value="">所有階段</option>
+        <option value="school">選校評估期</option>
+        <option value="docs">文件撰寫期</option>
+        <option value="submit">申請遞交期</option>
+        <option value="result">放榜追蹤期</option>
+      </select>
+      <input id="fSearch" type="text" placeholder="搜尋學生姓名…" oninput="applyFilters()" style="width:120px">
+    </div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-label">管理學員</div><div class="kpi-value" id="k-total">0</div></div>
+    <div class="kpi kpi-uk"><div class="kpi-label">英國</div><div class="kpi-value" id="k-uk">0</div></div>
+    <div class="kpi kpi-us"><div class="kpi-label">美國</div><div class="kpi-value" id="k-us">0</div></div>
+    <div class="kpi kpi-avg">
+      <div class="kpi-label">平均完成度</div>
+      <div class="kpi-value" id="k-avg">0%</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="k-avgbar" style="width:0%"></div></div>
+    </div>
+    <div class="kpi kpi-offer"><div class="kpi-label">已取得 Offer</div><div class="kpi-value" id="k-offer">0</div></div>
+    <div class="kpi kpi-alert"><div class="kpi-label">警報 / 補件</div><div class="kpi-value" id="k-alert">0</div></div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="tabs">
+    <button class="tab active" id="t-list"  onclick="switchTab('list')">學生列表</button>
+    <button class="tab"        id="t-board" onclick="switchTab('board')">主管儀表板</button>
+  </div>
+
+  <!-- LIST -->
+  <div id="v-list">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">學生 / 基本資料</th>
+            <th>顧問</th>
+            <th>國家</th>
+            <th>英檢 / 語測</th>
+            <th>申請年度</th>
+            <th>整體進度</th>
+            <th><span class="ph-tag ph-school">選校評估</span></th>
+            <th><span class="ph-tag ph-docs">文件撰寫</span></th>
+            <th><span class="ph-tag ph-submit">申請遞交</span></th>
+            <th><span class="ph-tag ph-result">放榜追蹤</span></th>
+            <th>決選學校</th>
+            <th style="text-align:right">操作</th>
+          </tr>
+        </thead>
+        <tbody id="tBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- BOARD -->
+  <div id="v-board" style="display:none">
+    <div class="board-grid" id="bPhases"></div>
+    <div class="board-lower">
+      <div class="board-card">
+        <h3>顧問負責分布</h3>
+        <div id="bAdvisors"></div>
+      </div>
+      <div class="board-card">
+        <h3>入學年度分布</h3>
+        <div id="bYears"></div>
+      </div>
+    </div>
+    <div class="country-grid">
+      <div class="board-card">
+        <h3>英國申請學生</h3>
+        <div class="country-list-scroll" id="bUK"></div>
+      </div>
+      <div class="board-card">
+        <h3>美國申請學生</h3>
+        <div class="country-list-scroll" id="bUSA"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <div class="modal-hdr-left">
+        <div class="modal-hdr-name" id="m-name">-</div>
+        <div class="modal-hdr-meta" id="m-meta">-</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="modal-pct-label">任務完成度</div>
+        <div class="modal-pct" id="m-pct">0%</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="m-body" onclick="handleTaskClick(event)"></div>
+    <div class="modal-ftr">
+      <div class="legend">
+        <span class="legend-item t-empty">待處理</span>
+        <span class="legend-item t-progress">進行中</span>
+        <span class="legend-item t-done">已完成</span>
+        <span class="legend-item t-alert">補件 / 警報</span>
+        <span style="color:#999;font-size:11px">← 點擊任務按鈕循環切換狀態</span>
+      </div>
+      <button class="btn-close" onclick="closeModal()">儲存並關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── TASK DEFINITIONS ───────────────────────────────────────────────────────
+
+var TD_UK = [
+  // 選校評估
+  {k:'contract',    l:'簽約',           p:'school'},
+  {k:'payment',     l:'繳費',           p:'school'},
+  {k:'tail_pay',    l:'尾款',           p:'school'},
+  {k:'syllabus',    l:'參考成績單',     p:'school'},
+  {k:'schedule',    l:'時程甘特圖',     p:'school'},
+  {k:'checklist',   l:'清單',           p:'school'},
+  {k:'sch_report',  l:'選校報告書',     p:'school'},
+  {k:'passport',    l:'護照',           p:'school'},
+  {k:'ielts',       l:'雅思狀態',       p:'school'},
+  // 文件撰寫
+  {k:'transcript',  l:'中英文成績單',   p:'docs'},
+  {k:'diploma',     l:'中英文畢業證書', p:'docs'},
+  {k:'cv1',         l:'CV 初稿',        p:'docs'},
+  {k:'cv2',         l:'CV 完稿',        p:'docs'},
+  {k:'ps1',         l:'PS 初稿',        p:'docs'},
+  {k:'ps2',         l:'PS 完稿',        p:'docs'},
+  {k:'rl1a',        l:'RL1 初稿',       p:'docs'},
+  {k:'rl1b',        l:'RL1 完稿',       p:'docs'},
+  {k:'rl2a',        l:'RL2 初稿',       p:'docs'},
+  {k:'rl2b',        l:'RL2 完稿',       p:'docs'},
+  // 申請遞交
+  {k:'basic_info',  l:'基本資料表',     p:'submit'},
+  {k:'stamp',       l:'正本彌封',       p:'submit'},
+  {k:'score_v',     l:'成績驗證',       p:'submit'},
+  {k:'ielts_ex',    l:'英檢加發',       p:'submit'},
+  {k:'open_form',   l:'開表',           p:'submit'},
+  {k:'app_notify',  l:'已通知申請部',   p:'submit'},
+  {k:'app_confirm', l:'申請確認',       p:'submit'},
+  {k:'submit',      l:'送出申請',       p:'submit'},
+  // 放榜追蹤 (UK專屬)
+  {k:'offer',       l:'Offer 追蹤',     p:'result'},
+  {k:'lang_c',      l:'語言課',         p:'result'},
+  {k:'deposit',     l:'保證金',         p:'result'},
+  {k:'uncon',       l:'Unconditional',  p:'result'},
+  {k:'housing',     l:'住宿申請',       p:'result'},
+  {k:'cas',         l:'CAS 換取',       p:'result'},
+  {k:'visa',        l:'簽證辦理',       p:'result'},
+  {k:'pp_renew',    l:'護照更新確認',   p:'result'},
+];
+
+var TD_USA = [
+  // 選校評估
+  {k:'contract',    l:'簽約',               p:'school'},
+  {k:'payment',     l:'繳費',               p:'school'},
+  {k:'tail_pay',    l:'尾款',               p:'school'},
+  {k:'syllabus',    l:'參考成績單',         p:'school'},
+  {k:'schedule',    l:'時程甘特圖',         p:'school'},
+  {k:'checklist',   l:'清單',               p:'school'},
+  {k:'sch_report',  l:'選校報告書',         p:'school'},
+  {k:'passport',    l:'護照',               p:'school'},
+  {k:'toefl',       l:'TOEFL 狀態',         p:'school'},
+  {k:'gmat_gre',    l:'GMAT / GRE',         p:'school'},
+  {k:'email_setup', l:'信箱設定',           p:'school'},
+  // 文件撰寫
+  {k:'transcript',  l:'中英文成績單',       p:'docs'},
+  {k:'diploma',     l:'中英文畢業證書',     p:'docs'},
+  {k:'cv1',         l:'CV 初稿',            p:'docs'},
+  {k:'cv2',         l:'CV 完稿',            p:'docs'},
+  {k:'sop1',        l:'SOP / PS 初稿',      p:'docs'},
+  {k:'sop2',        l:'SOP / PS 完稿',      p:'docs'},
+  {k:'rl1a',        l:'RL1 初稿',           p:'docs'},
+  {k:'rl1b',        l:'RL1 完稿',           p:'docs'},
+  {k:'rl2a',        l:'RL2 初稿',           p:'docs'},
+  {k:'rl2b',        l:'RL2 完稿',           p:'docs'},
+  {k:'rl3a',        l:'RL3 初稿',           p:'docs'},
+  {k:'rl3b',        l:'RL3 完稿',           p:'docs'},
+  // 申請遞交
+  {k:'basic_info',  l:'基本資料表',         p:'submit'},
+  {k:'stamp',       l:'正本彌封',           p:'submit'},
+  {k:'score_v',     l:'成績驗證',           p:'submit'},
+  {k:'toefl_ex',    l:'英檢成績加發',       p:'submit'},
+  {k:'gmat_ex',     l:'GMAT/GRE 加發',      p:'submit'},
+  {k:'open_form',   l:'開表',               p:'submit'},
+  {k:'app_notify',  l:'已通知申請部',       p:'submit'},
+  {k:'app_confirm', l:'申請確認',           p:'submit'},
+  {k:'submit',      l:'送出申請',           p:'submit'},
+  // 放榜追蹤 (USA專屬)
+  {k:'offer',       l:'Offer 追蹤',         p:'result'},
+  {k:'deposit',     l:'保證金',             p:'result'},
+  {k:'i20',         l:'I-20 換取',          p:'result'},
+  {k:'visa_int',    l:'簽證面試',           p:'result'},
+  {k:'visa',        l:'簽証辦理',           p:'result'},
+  {k:'housing',     l:'住宿申請',           p:'result'},
+  {k:'pp_renew',    l:'護照更新確認',       p:'result'},
+  {k:'enroll',      l:'入學資料繳交',       p:'result'},
+];
+
+var CYCLE = ['empty','progress','done','alert'];
+var SLABEL = {empty:'待處理', progress:'進行中', done:'已完成', alert:'補件/警報'};
+var SCLS   = {empty:'t-empty', progress:'t-progress', done:'t-done', alert:'t-alert'};
+
+function getTD(country) { return country === 'UK' ? TD_UK : TD_USA; }
+
+function mkTasks(country, overrides) {
+  var t = {};
+  getTD(country).forEach(function(d){ t[d.k] = 'empty'; });
+  for (var k in overrides) { t[k] = overrides[k]; }
+  return t;
+}
+
+// ─── STUDENT DATA ────────────────────────────────────────────────────────────
+var STUDENTS = [
+  // ── 英國 2026 Sonia ──
+  {id:1, name:'王品堯', year:'2026', country:'UK', advisor:'Sonia', bg:'東吳/經濟', dept:'Pre-master + Management', date:'1/29', exam:'待報名', schools:['Durham','Birming','Southam','Notting','Lancas','Newcast'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'progress'})},
+  {id:2, name:'鐘紫宜', year:'2026', country:'UK', advisor:'Sonia', bg:'東吳/企管/GPA 3.2', dept:'Marketing', date:'10/1', exam:'IELTS 7.0/6.5', schools:['KCL','Manche','Bath','Durham','Bristol','Sheffield','Lancast'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'progress',open_form:'done',app_notify:'progress',app_confirm:'progress'})},
+  {id:3, name:'林昕佑', year:'2026', country:'UK', advisor:'Sonia', bg:'—', dept:'International Relations', date:'12/2', exam:'待考', schools:['LSE','KCL','UCL','Manche','Edinbur','Birming'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',cv1:'progress',ps1:'progress',open_form:'progress'})},
+  {id:4, name:'丘婉盈', year:'2026', country:'UK', advisor:'Sonia', bg:'長庚/資管/GPA 3.64', dept:'Marketing', date:'1/21', exam:'IELTS 預計6.5/6.0', schools:['UCL','KCL','Manche','Bristol','Leeds','Southam','Durham'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'progress',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',open_form:'done',app_confirm:'progress'})},
+  {id:5, name:'邱睦庭', year:'2026', country:'UK', advisor:'Sonia', bg:'東吳/歷史/90.01%', dept:'History', date:'2/13', exam:'IELTS 1/18待報名', schools:['LSE','UCL','Edinbur','Manche','KCL','Southam','Durham','SOAS'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'progress',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',open_form:'done',app_confirm:'progress'})},
+  {id:6, name:'陳昫之', year:'2026', country:'UK', advisor:'Sonia', bg:'東吳/財務工程精算/77%', dept:'Risk Management', date:'3/3', exam:'預計1月考', schools:['Southam','Leeds','Birmingh','Bath','QMUL','Sheffield','KCL'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'progress',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'progress',open_form:'done',app_notify:'progress',app_confirm:'progress'})},
+  {id:7, name:'蕭婷', year:'2026', country:'UK', advisor:'Sonia', bg:'中山/職治系 臺大/職治所/GPA 3.9', dept:'Management', date:'3/7', exam:'IELTS 1/24紙本', schools:['Manche','Glasgow','Bristol','Leeds','Birmingh','Durham'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'progress',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',open_form:'done',app_confirm:'progress'})},
+  {id:8, name:'鄭宇芯', year:'2026', country:'UK', advisor:'Sonia', bg:'暨南/財經/84%(3.53)', dept:'Finance', date:'4/29', exam:'IELTS 6.0(5.5)', schools:['UCL','KCL','Manche','Glasgow','City','Bath'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'alert',ielts:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',open_form:'done',app_confirm:'progress'})},
+  // ── 英國 2026 Amy ──
+  {id:9, name:'連昱綺', year:'2026', country:'UK', advisor:'Amy', bg:'北教大/藝術造型設計/84.24%', dept:'Fine Art', date:'5/5', exam:'IELTS 1月待報名', schools:['Goldsmi','GSA','Kingston','Newcast','Brighton','Edinbur'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'progress',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',open_form:'done',app_confirm:'progress'})},
+  {id:10, name:'紀穎君', year:'2026', country:'UK', advisor:'Amy', bg:'臺師大/英文/3.98', dept:'Translation & Interpreting', date:'6/12', exam:'IELTS v', schools:['Sheffield','Exeter','Manche','Glasgow','Birmingh','Bristol'], hasOffer:true, chosen:'Manche',
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'done',stamp:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',lang_c:'done',deposit:'done',uncon:'done',housing:'progress',cas:'progress',visa:'progress'})},
+  {id:11, name:'張品儀', year:'2026', country:'UK', advisor:'Amy', bg:'北大/經濟/77.5%', dept:'Marketing', date:'6/20', exam:'IELTS v', schools:['Manche','KCL','Southam','Durham','Leeds','Birming','UAL'], hasOffer:true, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl2a:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'progress'})},
+  {id:12, name:'林庭禾', year:'2026', country:'UK', advisor:'Amy', bg:'銘傳/財務金融/84%', dept:'Marketing', date:'3/20', exam:'待報名', schools:['KCL','Manche','Birmingh','Southam','Bath','Sheffield'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl2a:'done',rl2b:'done',open_form:'done',app_confirm:'progress',deposit:'progress'})},
+  // ── 英國 2025 ──
+  {id:20, name:'劉知靜', year:'2025', country:'UK', advisor:'Amy', bg:'政大/外交/91.93%', dept:'International Relations', date:'12/1', exam:'IELTS v', schools:['KCL','Manche','Glasgow','Bristol','Leeds','Notting'], hasOffer:true, chosen:'KCL',
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'done',stamp:'done',score_v:'done',ielts_ex:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',lang_c:'done',deposit:'done',uncon:'done',housing:'done',cas:'done',visa:'done',pp_renew:'done'})},
+  {id:21, name:'湯舒婷', year:'2025', country:'UK', advisor:'Amy', bg:'臺藝大/書畫藝術/GPA 3.97', dept:'Arts Therapy', date:'1/15', exam:'語言課中', schools:['QMU','Goldsmi','Brunel','SHU','Hertford','Derby'], hasOffer:true, chosen:'Derby',
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'progress',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'done',stamp:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',lang_c:'done',deposit:'done',uncon:'done',housing:'done',cas:'done',visa:'done'})},
+  {id:22, name:'陳凱馨', year:'2025', country:'UK', advisor:'Tina', bg:'師大/企管/GPA 3.3', dept:'Management', date:'2/19', exam:'IELTS v', schools:['Manche','Warwick','Birming','Bath','Leeds','Durham','KCL(MKT)'], hasOffer:true, chosen:'KCL(MKT)',
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'done',stamp:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',deposit:'done',uncon:'done',housing:'done',cas:'done',visa:'done'})},
+  {id:23, name:'朱庭儀', year:'2025', country:'UK', advisor:'Tina', bg:'淡江/財金/GPA 4.0', dept:'Business Analytics', date:'3/11', exam:'IELTS 語言課', schools:['KCL','Manche','Durham','Birming','Bristol','Leeds','UCL'], hasOffer:true, chosen:'UCL',
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'progress',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'done',stamp:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',lang_c:'done',deposit:'done',uncon:'done',housing:'done',cas:'progress',visa:'progress'})},
+  {id:24, name:'林芷嫻', year:'2025', country:'UK', advisor:'Tina', bg:'成大/工業資管/3.68', dept:'Data Science', date:'3/22', exam:'IELTS v', schools:['UCL(CS)','UCL(DS)','KCL','Manche','Bristol','Birming'], hasOffer:true, chosen:'Edinbur',
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',ielts:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',basic_info:'done',stamp:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',deposit:'done',uncon:'done',housing:'done',cas:'done',visa:'done'})},
+  {id:25, name:'許瑋蘋', year:'2025', country:'UK', advisor:'Sonia', bg:'東吳/社會/79.31%', dept:'Marketing', date:'2/14', exam:'待報名', schools:['Birmingh','Bristol','Leeds','Lancast','Bath','QMUL'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',ps1:'done',ps2:'done',rl1a:'done',rl2a:'done',rl2b:'done',open_form:'done'})},
+  // ── 英國 2027 ──
+  {id:30, name:'鄭念欣', year:'2027', country:'UK', advisor:'Sonia', bg:'—', dept:'Media & Communication', date:'8/30', exam:'待考', schools:[], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done'})},
+  {id:31, name:'(預)李竑陞', year:'2027', country:'UK', advisor:'Amy', bg:'—', dept:'—', date:'9/12', exam:'待考', schools:['Durham','Glasgow','Notting','Lancast'], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',syllabus:'done',schedule:'progress',checklist:'done',sch_report:'done'})},
+  {id:32, name:'許容瑄', year:'2027', country:'UK', advisor:'Tina', bg:'高醫/香粧品/73.3%', dept:'Marketing', date:'4/19', exam:'語言課', schools:[], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',syllabus:'done',schedule:'done',checklist:'done'})},
+  {id:33, name:'吳宗翰', year:'2027', country:'UK', advisor:'Kevin', bg:'輔大/財金/3.55', dept:'Finance', date:'10/20', exam:'待考', schools:[], hasOffer:false, chosen:null,
+    tasks: mkTasks('UK', {contract:'done',payment:'done',schedule:'progress'})},
+  // ── 美國 2026 ──
+  {id:40, name:'林志宏', year:'2026', country:'USA', advisor:'Amy', bg:'東吳/經濟/3.6', dept:'Finance', date:'3/15', exam:'TOEFL 105 / GMAT 720', schools:['Columbia','NYU','Michigan','Georgetown'], hasOffer:false, chosen:null,
+    tasks: mkTasks('USA', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',toefl:'done',gmat_gre:'done',email_setup:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',sop1:'done',sop2:'progress',rl1a:'done',rl2a:'done',rl3a:'done',open_form:'done',app_notify:'progress'})},
+  {id:41, name:'陳宣妤', year:'2026', country:'USA', advisor:'Amy', bg:'政大/法律/3.85', dept:'LLM', date:'4/2', exam:'TOEFL 110', schools:['Georgetown','Columbia','NYU','BU','UVA'], hasOffer:false, chosen:null,
+    tasks: mkTasks('USA', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',toefl:'done',email_setup:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',sop1:'done',sop2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',rl3a:'done',basic_info:'done',stamp:'done',score_v:'done',toefl_ex:'done',open_form:'done',app_notify:'done',app_confirm:'progress',submit:'progress'})},
+  {id:42, name:'黃柏翔', year:'2026', country:'USA', advisor:'Kevin', bg:'台大/資管/3.78', dept:'MIS/BA', date:'5/10', exam:'TOEFL 108 / GRE 320', schools:['Stern NYU','Simon Rochester','Kelley Indiana','UNC Kenan'], hasOffer:true, chosen:'Stern NYU',
+    tasks: mkTasks('USA', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',toefl:'done',gmat_gre:'done',email_setup:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',sop1:'done',sop2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',rl3a:'done',rl3b:'done',basic_info:'done',stamp:'done',score_v:'done',toefl_ex:'done',gmat_ex:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',deposit:'done',i20:'progress',visa:'progress'})},
+  {id:43, name:'江芸安', year:'2026', country:'USA', advisor:'Kevin', bg:'輔大/商管/79.63%(3.39)', dept:'Management', date:'6/1', exam:'TOEFL 103', schools:['USC Marshall','Brandeis','BU Questrom','Tulane'], hasOffer:false, chosen:null,
+    tasks: mkTasks('USA', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',toefl:'done',email_setup:'done',transcript:'done',cv1:'done',cv2:'done',sop1:'progress',rl1a:'done',rl2a:'progress'})},
+  {id:44, name:'吳彥錚', year:'2026', country:'USA', advisor:'Kevin', bg:'中興/財務金融/3.37', dept:'Business Analytics', date:'10/23', exam:'TOEFL/GMAT 待考', schools:['Ohio State','UMN Carlson','UConn','Temple'], hasOffer:false, chosen:null,
+    tasks: mkTasks('USA', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'progress',toefl:'progress',email_setup:'done'})},
+  // ── 美國 2025 ──
+  {id:50, name:'鄭雅', year:'2025', country:'USA', advisor:'Kevin', bg:'台大/園藝/3.71', dept:'Marketing', date:'9/6', exam:'TOEFL v', schools:['KU','USC','BU','Fordham','Northeastern'], hasOffer:true, chosen:'USC',
+    tasks: mkTasks('USA', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',toefl:'done',email_setup:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',sop1:'done',sop2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',rl3a:'done',rl3b:'done',basic_info:'done',stamp:'done',score_v:'done',toefl_ex:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',deposit:'done',i20:'done',visa_int:'done',visa:'done',housing:'done',pp_renew:'done',enroll:'done'})},
+  {id:51, name:'顏佑先', year:'2025', country:'USA', advisor:'Kevin', bg:'實踐/國貿/88.65% 有法國碩士', dept:'Financial Mathematics', date:'9/15', exam:'TOEFL v / GRE 329', schools:['Columbia','NYU Courant','Carnegie Mellon','BU MF'], hasOffer:true, chosen:'Columbia',
+    tasks: mkTasks('USA', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',toefl:'done',gmat_gre:'done',email_setup:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',sop1:'done',sop2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',rl3a:'done',rl3b:'done',basic_info:'done',stamp:'done',score_v:'done',toefl_ex:'done',gmat_ex:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',deposit:'done',i20:'done',visa_int:'done',visa:'done',housing:'done',enroll:'done'})},
+  {id:52, name:'林佳儀', year:'2025', country:'USA', advisor:'Tina', bg:'政大/外交/約3.7', dept:'Service Design', date:'9/23', exam:'TOEFL v', schools:['Pratt','RISD','SVA','Parsons','AAU'], hasOffer:true, chosen:'Pratt',
+    tasks: mkTasks('USA', {contract:'done',payment:'done',tail_pay:'done',syllabus:'done',schedule:'done',checklist:'done',sch_report:'done',passport:'done',toefl:'done',email_setup:'done',transcript:'done',diploma:'done',cv1:'done',cv2:'done',sop1:'done',sop2:'done',rl1a:'done',rl1b:'done',rl2a:'done',rl2b:'done',rl3a:'done',rl3b:'done',basic_info:'done',stamp:'done',score_v:'done',toefl_ex:'done',open_form:'done',app_notify:'done',app_confirm:'done',submit:'done',offer:'done',deposit:'done',i20:'done',visa_int:'done',visa:'done',housing:'done',enroll:'done'})},
+  // ── 美國 2027 ──
+  {id:60, name:'吳建廷', year:'2027', country:'USA', advisor:'Kevin', bg:'台大/資工/3.9', dept:'CS / AI', date:'9/1', exam:'GRE 330(待考)', schools:[], hasOffer:false, chosen:null,
+    tasks: mkTasks('USA', {contract:'done',payment:'done',schedule:'progress'})},
+  {id:61, name:'林品君', year:'2027', country:'USA', advisor:'Tina', bg:'政大/心理/3.7', dept:'Applied Psychology', date:'10/5', exam:'TOEFL 待考', schools:[], hasOffer:false, chosen:null,
+    tasks: mkTasks('USA', {contract:'done',payment:'done',syllabus:'progress'})},
+  {id:62, name:'黃庭瑜', year:'2027', country:'USA', advisor:'Sonia', bg:'東海/商學/3.6', dept:'MBA', date:'11/1', exam:'GMAT 待考', schools:[], hasOffer:false, chosen:null,
+    tasks: mkTasks('USA', {contract:'done',payment:'done'})},
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+var filtered = STUDENTS.slice();
+var currentTab = 'list';
+var currentId  = null;
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function phaseColor(p) {
+  return {school:'#1e40af', docs:'#92400e', submit:'#166534', result:'#6b21a8'}[p] || '#555';
+}
+function phaseName(p) {
+  return {school:'選校評估', docs:'文件撰寫', submit:'申請遞交', result:'放榜追蹤'}[p] || p;
+}
+
+function calcPhase(s, phase) {
+  var td = getTD(s.country);
+  var keys = td.filter(function(d){ return d.p === phase; }).map(function(d){ return d.k; });
+  if (!keys.length) return {done:0, total:0, pct:0};
+  var done = keys.filter(function(k){ return (s.tasks[k]||'empty') === 'done'; }).length;
+  return {done:done, total:keys.length, pct:Math.round(done/keys.length*100)};
+}
+
+function calcTotal(s) {
+  var td = getTD(s.country);
+  var done = td.filter(function(d){ return (s.tasks[d.k]||'empty') === 'done'; }).length;
+  return Math.round(done/td.length*100);
+}
+
+function phaseStatus(s, phase) {
+  var td = getTD(s.country);
+  var keys = td.filter(function(d){ return d.p === phase; }).map(function(d){ return d.k; });
+  var vals = keys.map(function(k){ return s.tasks[k]||'empty'; });
+  if (vals.every(function(v){ return v==='done'; })) return 'dot-done';
+  if (vals.some(function(v){ return v==='alert'; })) return 'dot-alert';
+  if (vals.some(function(v){ return v==='progress'; })) return 'dot-active';
+  return 'dot-pending';
+}
+
+function hasAlert(s) {
+  return Object.values(s.tasks).some(function(v){ return v === 'alert'; });
+}
+
+function barColor(pct) {
+  return pct >= 80 ? '#22c55e' : pct >= 40 ? '#3b82f6' : '#f59e0b';
+}
+
+function el(id) { return document.getElementById(id); }
+
+// ─── FILTERS ──────────────────────────────────────────────────────────────────
+function applyFilters() {
+  var year    = el('fYear').value;
+  var advisor = el('fAdvisor').value;
+  var country = el('fCountry').value;
+  var search  = el('fSearch').value.trim().toLowerCase();
+
+  filtered = STUDENTS.filter(function(s) {
+    if (year    && s.year    !== year)    return false;
+    if (advisor && s.advisor !== advisor) return false;
+    if (country && s.country !== country) return false;
+    if (search  && s.name.toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+  renderAll();
+}
+
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
+function updateKPIs() {
+  var total  = filtered.length;
+  var uk     = filtered.filter(function(s){ return s.country==='UK'; }).length;
+  var us     = filtered.filter(function(s){ return s.country==='USA'; }).length;
+  var offers = filtered.filter(function(s){ return s.hasOffer; }).length;
+  var alerts = filtered.filter(function(s){ return hasAlert(s); }).length;
+  var avg    = total ? Math.round(filtered.reduce(function(a,s){ return a+calcTotal(s); },0)/total) : 0;
+
+  el('k-total').textContent = total;
+  el('k-uk').textContent    = uk;
+  el('k-us').textContent    = us;
+  el('k-offer').textContent = offers;
+  el('k-alert').textContent = alerts;
+  el('k-avg').textContent   = avg + '%';
+  el('k-avgbar').style.width = avg + '%';
+}
+
+// ─── LIST ─────────────────────────────────────────────────────────────────────
+function renderList() {
+  var tb = el('tBody');
+  if (!filtered.length) {
+    tb.innerHTML = '<tr><td colspan="12" class="empty-msg">找不到符合條件的學生</td></tr>';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(s) {
+    var pct = calcTotal(s);
+    var bc  = barColor(pct);
+
+    var chips = '';
+    (s.schools||[]).slice(0,5).forEach(function(sc){
+      chips += '<span class="chip' + (sc===s.chosen?' chosen':'') + '">' + sc + '</span>';
+    });
+    if ((s.schools||[]).length > 5) {
+      chips += '<span class="chip">+' + (s.schools.length-5) + '</span>';
+    }
+    if (!chips) chips = '<span style="color:#ccc;font-size:10px">尚未決選</span>';
+
+    var badges = '';
+    if (s.hasOffer) badges += ' <span class="badge badge-offer">OFFER</span>';
+    if (hasAlert(s)) badges += ' <span class="badge badge-alert">待處理</span>';
+
+    html += '<tr>' +
+      '<td>' +
+        '<div style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap">' +
+          '<span class="stu-name">' + s.name + '</span>' +
+          '<span class="stu-year">' + s.year + '</span>' +
+          badges +
+        '</div>' +
+        '<div class="stu-bg">' + (s.bg||'—') + '</div>' +
+        '<div class="stu-dept">' + (s.dept||'') + '</div>' +
+        '<div class="stu-extra">簽約: ' + s.date + '</div>' +
+      '</td>' +
+      '<td><span style="font-weight:700;color:#555">' + s.advisor + '</span></td>' +
+      '<td>' +
+        (s.country==='UK'
+          ? '<span class="badge badge-uk">英國</span>'
+          : '<span class="badge badge-usa">美國</span>') +
+      '</td>' +
+      '<td style="font-size:11px;color:#555;text-align:center">' + (s.exam||'—') + '</td>' +
+      '<td style="font-size:12px;font-weight:800;font-family:\'DM Mono\',monospace;text-align:center">' + s.year + '</td>' +
+      '<td>' +
+        '<div class="prog-wrap">' +
+          '<div class="prog-bar"><div class="prog-fill" style="width:'+pct+'%;background:'+bc+'"></div></div>' +
+          '<span class="prog-pct">' + pct + '%</span>' +
+        '</div>' +
+      '</td>' +
+      '<td><div style="display:flex;justify-content:center"><div class="dot ' + phaseStatus(s,'school') + '"></div></div></td>' +
+      '<td><div style="display:flex;justify-content:center"><div class="dot ' + phaseStatus(s,'docs')   + '"></div></div></td>' +
+      '<td><div style="display:flex;justify-content:center"><div class="dot ' + phaseStatus(s,'submit') + '"></div></div></td>' +
+      '<td><div style="display:flex;justify-content:center"><div class="dot ' + phaseStatus(s,'result') + '"></div></div></td>' +
+      '<td style="text-align:left">' + chips + '</td>' +
+      '<td><button class="btn-detail" onclick="openModal(' + s.id + ')">詳細進度</button></td>' +
+    '</tr>';
+  });
+  tb.innerHTML = html;
+}
+
+// ─── BOARD ────────────────────────────────────────────────────────────────────
+function renderBoard() {
+  var phases = ['school','docs','submit','result'];
+
+  // Phase columns
+  var phHtml = '';
+  phases.forEach(function(phase) {
+    var active = filtered.filter(function(s){
+      var st = phaseStatus(s,phase);
+      return st==='dot-active' || st==='dot-alert';
+    });
+    var done  = filtered.filter(function(s){ return phaseStatus(s,phase)==='dot-done'; }).length;
+    var total = filtered.length;
+    var col   = phaseColor(phase);
+    var pct   = total ? Math.round(done/total*100) : 0;
+
+    phHtml += '<div class="phase-col">' +
+      '<div class="phase-col-hdr" style="background:'+col+'">' +
+        '<div class="phase-col-hdr-title">' +
+          phaseName(phase) +
+          '<span style="font-size:10px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:99px;font-family:\'DM Mono\',monospace">' + done + '/' + total + '</span>' +
+        '</div>' +
+        '<div class="phase-col-hdr-bar"><div class="phase-col-hdr-bar-fill" style="width:'+pct+'%"></div></div>' +
+      '</div>' +
+      '<div class="phase-col-body">';
+    if (active.length) {
+      active.forEach(function(s){
+        var prog = calcPhase(s, phase);
+        var isAlert = phaseStatus(s,phase)==='dot-alert';
+        phHtml += '<div class="phase-student" onclick="openModal('+s.id+')">' +
+          '<div>' +
+            '<div class="phase-student-name">' + (isAlert?'! ':'') + s.name + '</div>' +
+            '<div class="phase-student-sub">' + s.country + ' · ' + s.year + ' · ' + s.advisor + '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+            '<div class="phase-mini-bar"><div class="phase-mini-fill" style="width:'+prog.pct+'%;background:'+col+'"></div></div>' +
+            '<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:#888;min-width:24px;text-align:right">'+prog.pct+'%</span>' +
+          '</div>' +
+        '</div>';
+      });
+    } else {
+      phHtml += '<div style="padding:24px;text-align:center;color:#bbb;font-size:12px">無進行中學生</div>';
+    }
+    phHtml += '</div></div>';
+  });
+  el('bPhases').innerHTML = phHtml;
+
+  // Advisors
+  var advisors = [];
+  filtered.forEach(function(s){ if(advisors.indexOf(s.advisor)===-1) advisors.push(s.advisor); });
+  advisors.sort();
+  var advHtml = '';
+  advisors.forEach(function(adv){
+    var list   = filtered.filter(function(s){ return s.advisor===adv; });
+    var uk     = list.filter(function(s){ return s.country==='UK'; }).length;
+    var us     = list.filter(function(s){ return s.country==='USA'; }).length;
+    var offers = list.filter(function(s){ return s.hasOffer; }).length;
+    var avg    = list.length ? Math.round(list.reduce(function(a,s){ return a+calcTotal(s); },0)/list.length) : 0;
+    advHtml += '<div class="adv-row">' +
+      '<div class="adv-avatar">' + adv.charAt(0) + '</div>' +
+      '<div class="adv-info">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<span class="adv-name">' + adv + '</span>' +
+          '<span style="font-size:10px;font-family:\'DM Mono\',monospace;color:#999">' + avg + '%</span>' +
+        '</div>' +
+        '<div class="adv-bar"><div class="adv-bar-fill" style="width:'+avg+'%"></div></div>' +
+        '<div class="adv-stats"><span>共 <b>'+list.length+'</b> 人</span><span style="color:#1e40af">英 '+uk+'</span><span style="color:#14532d">美 '+us+'</span><span style="color:var(--cr)">Offer '+offers+'</span></div>' +
+      '</div>' +
+    '</div>';
+  });
+  el('bAdvisors').innerHTML = advHtml;
+
+  // Years
+  var years = [];
+  filtered.forEach(function(s){ if(years.indexOf(s.year)===-1) years.push(s.year); });
+  years.sort().reverse();
+  var yrHtml = '';
+  years.forEach(function(y){
+    var list = filtered.filter(function(s){ return s.year===y; });
+    yrHtml += '<div class="year-row">' +
+      '<span class="year-row-label">' + y + ' 入學</span>' +
+      '<div class="year-row-badges">' +
+        '<span class="badge badge-uk">' + list.filter(function(s){ return s.country==='UK'; }).length + ' 英</span>' +
+        '<span class="badge badge-usa">' + list.filter(function(s){ return s.country==='USA'; }).length + ' 美</span>' +
+      '</div>' +
+    '</div>';
+  });
+  el('bYears').innerHTML = yrHtml;
+
+  // Country lists
+  function mkCList(list) {
+    if (!list.length) return '<div style="padding:12px;color:#bbb;font-size:12px">（無學生）</div>';
+    var h = '';
+    list.forEach(function(s){
+      var pct = calcTotal(s);
+      h += '<div class="country-list-item" onclick="openModal('+s.id+')">' +
+        '<div>' +
+          '<div class="cli-name">' + s.name + ' <span style="font-weight:400;color:#aaa">'+s.year+'</span></div>' +
+          '<div class="cli-sub">' + (s.dept||'—') + ' · ' + s.advisor + '</div>' +
+        '</div>' +
+        '<div class="cli-right">' +
+          (s.hasOffer ? '<span class="badge badge-offer">OFFER</span>' : '') +
+          '<span class="cli-pct">' + pct + '%</span>' +
+        '</div>' +
+      '</div>';
+    });
+    return h;
+  }
+  el('bUK').innerHTML  = mkCList(filtered.filter(function(s){ return s.country==='UK'; }));
+  el('bUSA').innerHTML = mkCList(filtered.filter(function(s){ return s.country==='USA'; }));
+}
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function openModal(id) {
+  currentId = id;
+  var s = STUDENTS.filter(function(x){ return x.id===id; })[0];
+  if (!s) return;
+
+  var countryLabel = s.country === 'UK' ? '英國' : '美國';
+  var offerBadge   = s.hasOffer ? ' <span class="badge badge-offer">OFFER</span>' : '';
+
+  el('m-name').innerHTML = s.name +
+    ' <span class="badge ' + (s.country==='UK'?'badge-uk':'badge-usa') + '">' + countryLabel + '</span>' +
+    offerBadge;
+
+  var meta = [
+    s.advisor ? '顧問: ' + s.advisor : '',
+    s.bg || '',
+    s.dept || '',
+    s.exam ? '英檢: ' + s.exam : ''
+  ].filter(Boolean).join('  |  ');
+  el('m-meta').textContent = meta;
+  el('m-pct').textContent  = calcTotal(s) + '%';
+
+  renderModalBody(s);
+  el('modal-overlay').classList.add('open');
+}
+
+function renderModalBody(s) {
+  var td = getTD(s.country);
+  var phases = ['school','docs','submit','result'];
+  var phaseTitles = {school:'選校評估期', docs:'文件撰寫期', submit:'申請遞交期', result:'放榜追蹤期'};
+  var html = '';
+
+  phases.forEach(function(phase) {
+    var items = td.filter(function(d){ return d.p === phase; });
+    if (!items.length) return;
+    var prog = calcPhase(s, phase);
+    var col  = phaseColor(phase);
+
+    html += '<div class="phase-section">';
+    html += '<div class="phase-section-hdr" style="background:' + col + '">';
+    html += '<span class="phase-section-title">' + phaseTitles[phase] + '</span>';
+    html += '<span class="phase-section-count">' + prog.done + ' / ' + prog.total + ' &nbsp; ' + prog.pct + '%</span>';
+    html += '</div>';
+    html += '<div class="phase-section-body">';
+
+    items.forEach(function(d) {
+      var st = s.tasks[d.k] || 'empty';
+      var cl = SCLS[st];
+      var lb = SLABEL[st];
+      // Use data-key attribute — no inline quote escaping needed
+      html += '<button class="task-btn ' + cl + '" data-key="' + d.k + '">';
+      html += '<span class="task-label">' + d.l + '</span>';
+      html += '<span class="task-status">' + lb + '</span>';
+      html += '</button>';
+    });
+
+    html += '</div></div>';
+  });
+
+  // Schools section
+  if (s.schools && s.schools.length) {
+    html += '<div class="school-section">';
+    html += '<div class="school-section-hdr"><span>申請學校列表</span><span>共 ' + s.schools.length + ' 所</span></div>';
+    html += '<div class="school-section-body">';
+    s.schools.forEach(function(sc) {
+      var isChosen = sc === s.chosen;
+      html += '<span class="chip' + (isChosen ? ' chosen' : '') + '">';
+      html += sc;
+      if (isChosen) html += ' — 確定就讀';
+      html += '</span>';
+    });
+    if (!s.chosen) {
+      html += '<span style="font-size:11px;color:#bbb;padding:4px 0;display:block">尚未確定就讀學校</span>';
+    }
+    html += '</div></div>';
+  } else {
+    html += '<div class="school-section">';
+    html += '<div class="school-section-hdr"><span>申請學校列表</span><span>尚未決選</span></div>';
+    html += '<div class="school-section-body"><span style="font-size:11px;color:#bbb">選校規劃中，尚未填入學校</span></div>';
+    html += '</div>';
+  }
+
+  el('m-body').innerHTML = html;
+}
+
+// Event delegation — handles clicks on any task-btn inside m-body
+function handleTaskClick(e) {
+  var btn = e.target.closest('[data-key]');
+  if (!btn) return;
+  var key = btn.getAttribute('data-key');
+  var s = STUDENTS.filter(function(x){ return x.id === currentId; })[0];
+  if (!s) return;
+  var cur = s.tasks[key] || 'empty';
+  var idx = CYCLE.indexOf(cur);
+  s.tasks[key] = CYCLE[(idx + 1) % CYCLE.length];
+  el('m-pct').textContent = calcTotal(s) + '%';
+  renderModalBody(s);
+  renderAll();
+}
+
+function closeModal() {
+  el('modal-overlay').classList.remove('open');
+  currentId = null;
+}
+
+// ─── TAB ──────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  el('v-list').style.display  = tab === 'list'  ? '' : 'none';
+  el('v-board').style.display = tab === 'board' ? '' : 'none';
+  el('t-list').className  = 'tab ' + (tab==='list'  ? 'active' : '');
+  el('t-board').className = 'tab ' + (tab==='board' ? 'active' : '');
+  renderAll();
+}
+
+function renderAll() {
+  updateKPIs();
+  if (currentTab === 'list') renderList();
+  else renderBoard();
+}
+
+// INIT
+applyFilters();
+</script>
+</body>
+</html>
